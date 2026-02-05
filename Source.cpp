@@ -16,6 +16,11 @@
 #include <unistd.h>
 #endif
 #include <execution>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <execution>
+
 
 bool force = false;
 
@@ -518,10 +523,10 @@ int main(int argc, char** argv) {
         std::cerr << "[!] -check \tchecing filter after populating\n";
         std::cerr << "[!] -compress \t Make compressed xor filter (.xor_c files) - 0.0000001% F/P chance \n";
         std::cerr << "[!] -ultra \t Make ultra compressed xor filter (.xor_uc files) - 0,001444% F/P chance \n";
-        std::cerr << "[!] -hyper \t Make hyper compressed xor filter (.xor_hc files) - 0,3556% F/P chance \n";
-        std::cerr << "[!] -mini \tUse 2 147 483 644 filter size (9 GB file (4.5 for ultra && 2.25 for hyper)\n";
-        std::cerr << "[!] -max \tUse 8 589 934 584 filter size (36 GB file (18 for ultra && 9 for hyper) !!! CAN BE USED MORE 256 GB RAM !!!\n";
-        std::cerr << "[!] -max2 \tUse 17 179 869 168 filter size (72 GB file (36 for ultra && 18 for hyper) !!! CAN BE USED MORE 512 GB RAM !!!\n";
+        //std::cerr << "[!] -hyper \t Make hyper compressed xor filter (.xor_hc files) - 0,3556% F/P chance \n";
+        std::cerr << "[!] -mini \tUse 2 147 483 644 filter size (9 GB file (4.5 for ultra "/* && 2.25 for hyper*/")\n";
+        std::cerr << "[!] -max \tUse 8 589 934 584 filter size (36 GB file (18 for ultra "/*&& 9 for hyper*/") !!!CAN BE USED MORE 256 GB RAM !!!\n";
+        std::cerr << "[!] -max2 \tUse 17 179 869 168 filter size (72 GB file (36 for ultra "/* && 18 for hyper*/") !!!CAN BE USED MORE 512 GB RAM !!!\n";
         std::cerr << "[!] -txt \t Split original txt's base in new txt's files (-0.txt, -1.txt...). \n";
         std::cerr << "[!] -force \t use more aggressive sort, high CPU usage\n";
         std::cerr << "[!] -o FOLDER\t Saving path\n";
@@ -593,10 +598,10 @@ int main(int argc, char** argv) {
             std::cerr << "[!] -check \tchecing filter after populating\n";
             std::cerr << "[!] -compress \t Make compressed xor filter (.xor_c files) - 0.0000001% F/P chance \n";
             std::cerr << "[!] -ultra \t Make ultra compressed xor filter (.xor_uc files) - 0,001444% F/P chance \n";
-            std::cerr << "[!] -hyper \t Make hyper compressed xor filter (.xor_hc files) - 0,3556% F/P chance \n";
-            std::cerr << "[!] -mini \tUse 2 147 483 644 filter size (9 GB file (4.5 for ultra && 2.25 for hyper)\n";
-            std::cerr << "[!] -max \tUse 8 589 934 584 filter size (36 GB file (18 for ultra && 9 for hyper) !!! CAN BE USED MORE 256 GB RAM !!!\n";
-            std::cerr << "[!] -max2 \tUse 17 179 869 168 filter size (72 GB file (36 for ultra && 18 for hyper) !!! CAN BE USED MORE 512 GB RAM !!!\n";
+           // std::cerr << "[!] -hyper \t Make hyper compressed xor filter (.xor_hc files) - 0,3556% F/P chance \n";
+            std::cerr << "[!] -mini \tUse 2 147 483 644 filter size (9 GB file (4.5 for ultra "/* && 2.25 for hyper*/")\n";
+            std::cerr << "[!] -max \tUse 8 589 934 584 filter size (36 GB file (18 for ultra "/*&& 9 for hyper*/") !!!CAN BE USED MORE 256 GB RAM !!!\n";
+            std::cerr << "[!] -max2 \tUse 17 179 869 168 filter size (72 GB file (36 for ultra "/* && 18 for hyper*/") !!!CAN BE USED MORE 512 GB RAM !!!\n";
             std::cerr << "[!] -txt \t Split original txt's base in new txt's files (-0.txt, -1.txt...). \n";
             std::cerr << "[!] -force \t use more aggressive sort, high CPU usage\n";
             std::cerr << "[!] -o FOLDER\t Saving path\n";
@@ -672,6 +677,7 @@ std::atomic<bool> stop{ false };
             unhex40_20(s, hash.uc);
 
             if (split) {
+#pragma omp critical
                 fwrite(s, 1, n, outputStream);
                 fputc('\n', outputStream);
             }
@@ -714,6 +720,7 @@ std::atomic<bool> stop{ false };
 
 
             if (Keys64.size() >= (XOR_MAX)) {
+#pragma omp critical
                 {
                     std::cerr << "[+] Processing " << files[fileIdx] << "  line: " << lineCount << "\r";
                     if (!force)

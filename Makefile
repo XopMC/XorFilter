@@ -1,1 +1,1 @@
-g++ -O3 -fopenmp Source.cpp -o hex_to_xor_lin64
+clang++ -O3 -std=c++17 -fopenmp Source.cpp -o hex_to_xor_ -ltbb

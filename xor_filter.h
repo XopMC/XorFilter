@@ -19,6 +19,7 @@ bool IS_COMPRESS = false;
 //using namespace std;
 #define XOR_MAX_SIZE UINT32_MAX - 3
 #define XOR_MIN_SIZE INT32_MAX - 3
+#define CHAR_BIT 8
 
 //#define XOR_ULTRA_SIZE XOR_MAX_SIZE * 2
 class TwoIndependentMultiplyShift {
