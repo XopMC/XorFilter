@@ -3,8 +3,8 @@
 Author: Mikhail Khoroshavin aka "XopMC"
 
 <div align="center">
-  <p><strong>XOR filter builder for large hex datasets</strong></p>
-  <p>Fast in-memory construction, legacy file compatibility, Windows and Linux release pipeline.</p>
+  <p><strong>Build compact XOR filters from massive hex datasets</strong></p>
+  <p>From raw text dumps to clean release-ready filter files, with flexible size profiles for real batch workloads.</p>
   <p>
     <a href="#english">English</a> |
     <a href="#русский">Русский</a>
@@ -17,30 +17,34 @@ Author: Mikhail Khoroshavin aka "XopMC"
 
 `XorFilter` is a command-line tool that builds binary XOR filter files from text inputs where each line contains a hex-encoded value.
 
-The project is designed for high-volume input processing and keeps compatibility with previously generated `.xor_*` files. The current implementation focuses on:
+It is built for people who work with big lists, long-running batch jobs, and data pipelines where you want the final result to stay compact, fast to query, and easy to regenerate.
+
+Instead of forcing one rigid output profile, `XorFilter` lets you choose how aggressively you want to shrink the result. You can start with a straightforward default build, switch to tighter compression when file size matters, verify the result after generation, and package the same workflow for both Windows and Linux.
+
+The current implementation focuses on:
 
 - deterministic filter generation;
-- compatibility with existing filter layouts;
-- lower peak memory usage than the earlier implementation;
-- support for several filter density modes;
+- lower peak memory usage during in-memory construction;
+- several output density profiles;
+- simple CLI flow for one file or many shards;
 - practical release packaging for Windows and Linux.
 
-### Highlights
+### What It Can Do
 
 - Uses a low-memory 4-wise XOR binary fuse filter implementation.
 - Accepts one or more input files with one hex value per line.
 - Supports standard, compressed, ultra-compressed, and hyper-compressed output modes.
 - Can verify the finished filter after build with `-check`.
 - Can split the source text stream into numbered chunk files with `-txt`.
-- Keeps the persisted filter format compatible with older `.xor_u`, `.xor_c`, `.xor_uc`, and `.xor_hc` files.
+- Fits both quick local runs and larger automated build pipelines.
 
-### Supported Input Forms
+### Accepted Input Formats
 
-The builder accepts the legacy-compatible input forms used by the project:
+The builder accepts several practical line formats out of the box:
 
 - plain 40-character hex lines;
 - `0x`-prefixed hex lines;
-- legacy-compatible lines that start with `02`, `03`, or `04`, where the builder keeps the historical normalization behavior before extracting the first 20 bytes.
+- lines that start with `02`, `03`, or `04`, which are normalized automatically before the filter key is derived.
 
 Example input:
 
@@ -223,7 +227,7 @@ x64\Release\hex_to_xor.exe -i .\data\hashes.txt -force
 
 ### Testing
 
-The repository includes a smoke script and compatibility checks.
+The repository includes a smoke script and validation checks so you can quickly confirm that a build still behaves as expected.
 
 Run the smoke script after building:
 
@@ -246,12 +250,12 @@ The repository is prepared for two primary release packages:
 | `XorFilter-windows-x64.zip` | Windows | `hex_to_xor.exe`, `README`, `LICENSE` |
 | `XorFilter-linux-x64.tar.gz` | Linux | `hex_to_xor`, `README`, `LICENSE` |
 
-### Compatibility Notes
+### Why It Feels Practical
 
-- The on-disk filter format stays compatible with older `.xor_*` files.
-- The tool preserves deterministic seed generation behavior.
-- The old external `uint128` dependency is removed from the active build path.
-- Input decoding keeps the historical legacy-compatible normalization logic.
+- Works well for large text-based datasets without turning the CLI flow into a maze.
+- Gives you several size/accuracy trade-offs instead of a single one-size-fits-all mode.
+- Lets you validate the finished result immediately with `-check`.
+- Ships with release packaging for Windows and Linux so the same workflow can move from local experiments to distribution.
 
 ### Repository Layout
 
@@ -259,8 +263,8 @@ The repository is prepared for two primary release packages:
 | --- | --- |
 | `Source.cpp` | CLI, file ingestion, sorting, and filter generation flow |
 | `xor_filter.h` | Low-memory 4-wise XOR binary fuse filter implementation |
-| `hex_key_utils.h` | Shared compatibility helpers for decoding and hashing |
-| `tests/` | Smoke tests, fixtures, and compatibility checks |
+| `hex_key_utils.h` | Shared helpers for input decoding and hashing |
+| `tests/` | Smoke tests, fixtures, and validation checks |
 | `.github/workflows/` | Automated CI and release workflows |
 
 ### License
@@ -279,30 +283,34 @@ Mikhail Khoroshavin aka "XopMC"
 
 `XorFilter` — это консольный инструмент для построения бинарных XOR-фильтров из текстовых входных файлов, где каждая строка содержит одно hex-значение.
 
-Проект рассчитан на большие наборы данных и сохраняет совместимость со старыми файлами `.xor_*`, уже созданными предыдущими версиями. Текущая реализация делает упор на:
+Он рассчитан на людей, которые работают с большими списками, тяжёлыми batch-задачами и data pipeline’ами, где на выходе хочется получить компактный, быстрый и удобный для повторной сборки результат.
+
+`XorFilter` не загоняет пользователя в один жёсткий сценарий. Можно собрать фильтр в базовом режиме, выбрать более плотный профиль, если важен размер файла, тут же проверить результат через `-check`, а потом использовать тот же workflow и на Windows, и на Linux.
+
+Текущая реализация делает упор на:
 
 - детерминированную сборку фильтров;
-- совместимость с существующим форматом файлов;
-- уменьшенное пиковое потребление памяти по сравнению со старой реализацией;
-- несколько режимов плотности фильтра;
-- практичную подготовку релизов для Windows и Linux.
+- уменьшенное пиковое потребление памяти во время in-memory построения;
+- несколько профилей плотности и размера результата;
+- простой CLI-проход для одного файла и для набора шардов;
+- удобную подготовку релизов под Windows и Linux.
 
-### Ключевые особенности
+### Что умеет инструмент
 
 - Использует low-memory реализацию 4-wise XOR binary fuse filter.
 - Принимает один или несколько входных файлов с одной hex-строкой на запись.
 - Поддерживает стандартный, compressed, ultra-compressed и hyper-compressed режимы.
 - Может проверять готовый фильтр после построения через `-check`.
 - Может сохранять исходный поток в разбитые текстовые чанки через `-txt`.
-- Сохраняет совместимость формата с уже существующими `.xor_u`, `.xor_c`, `.xor_uc` и `.xor_hc` файлами.
+- Подходит и для локальных прогонов, и для более серьёзных автоматизированных пайплайнов.
 
 ### Поддерживаемые форматы входных данных
 
-Инструмент принимает совместимые со старой логикой варианты строк:
+Инструмент умеет принимать несколько удобных форматов строк без лишней подготовки:
 
 - обычные 40-символьные hex-строки;
 - строки с префиксом `0x`;
-- legacy-совместимые строки, начинающиеся с `02`, `03` или `04`, где дальше применяется историческая логика нормализации перед извлечением первых 20 байт.
+- строки, начинающиеся с `02`, `03` или `04`, которые автоматически нормализуются перед извлечением ключа.
 
 Пример входного файла:
 
@@ -485,7 +493,7 @@ x64\Release\hex_to_xor.exe -i .\data\hashes.txt -force
 
 ### Тестирование
 
-В репозитории есть smoke-скрипт и проверки совместимости.
+В репозитории есть smoke-скрипт и проверочный набор, чтобы быстро убедиться, что сборка ведёт себя ожидаемо.
 
 После сборки можно запустить:
 
@@ -508,12 +516,12 @@ powershell -ExecutionPolicy Bypass -File tests\run_smoke.ps1
 | `XorFilter-windows-x64.zip` | Windows | `hex_to_xor.exe`, `README`, `LICENSE` |
 | `XorFilter-linux-x64.tar.gz` | Linux | `hex_to_xor`, `README`, `LICENSE` |
 
-### Заметки по совместимости
+### Почему этим удобно пользоваться
 
-- Формат файлов на диске остаётся совместимым со старыми `.xor_*`.
-- Детерминированная генерация seed сохранена.
-- Внешняя зависимость `uint128` убрана из активного build path.
-- Логика декодирования входа сохраняет историческое legacy-совместимое поведение.
+- Инструмент хорошо чувствует себя на больших текстовых наборах и не превращает CLI в перегруженный конструктор.
+- Даёт несколько вариантов баланса между размером и точностью, а не один жёсткий режим.
+- Позволяет сразу перепроверить результат через `-check`.
+- Уже подготовлен к релизной упаковке под Windows и Linux, так что один и тот же workflow легко переносится из локальной работы в дистрибуцию.
 
 ### Структура репозитория
 
@@ -521,8 +529,8 @@ powershell -ExecutionPolicy Bypass -File tests\run_smoke.ps1
 | --- | --- |
 | `Source.cpp` | CLI, чтение файлов, сортировка и основной flow построения |
 | `xor_filter.h` | Реализация low-memory 4-wise XOR binary fuse filter |
-| `hex_key_utils.h` | Общие compatibility-helper’ы для декодирования и hashing |
-| `tests/` | Smoke-тесты, фикстуры и compatibility checks |
+| `hex_key_utils.h` | Общие helper’ы для декодирования входа и hashing |
+| `tests/` | Smoke-тесты, фикстуры и проверочный набор |
 | `.github/workflows/` | Автоматические CI и release workflows |
 
 ### Лицензия
