@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+            binary_path: x64/Release/hex_to_xor.exe
+            package_script: scripts/package_release.ps1
+          - os: ubuntu-latest
+            name: linux-x64
+            binary_path: hex_to_xor
+            package_script: scripts/package_release.sh
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Set up Linux toolchain
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libomp-dev libtbb-dev
+
+      - name: Build Windows release
+        if: runner.os == 'Windows'
+        run: msbuild hex_to_xor.sln /p:Configuration=Release /p:Platform=x64
+
+      - name: Build Linux release
+        if: runner.os == 'Linux'
+        run: make
+
+      - name: Package Windows release assets
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          & "${{ matrix.package_script }}" `
+            -BinaryPath "${{ matrix.binary_path }}" `
+            -OutputDir "dist/${{ matrix.name }}" `
+            -Version "$env:RELEASE_TAG" `
+            -SourceSha "$env:SOURCE_SHA"
+
+      - name: Package Linux release assets
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          bash "${{ matrix.package_script }}" \
+            --binary-path "${{ matrix.binary_path }}" \
+            --output-dir "dist/${{ matrix.name }}" \
+            --version "$RELEASE_TAG" \
+            --source-sha "$SOURCE_SHA"
+
+      - name: Upload packaged assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/${{ matrix.name }}/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+    steps:
+      - name: Download packaged assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          generate_release_notes: true
+          files: release-assets/**/*
+          fail_on_unmatched_files: true

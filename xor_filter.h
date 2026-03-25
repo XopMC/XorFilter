@@ -1,53 +1,34 @@
+/*
+ * hex_to_xor
+ * Author: Mikhail Khoroshavin aka "XopMC"
+ * Low-memory 4-wise XOR binary fuse filter implementation used by the builder.
+ */
+
 #ifndef FOURWISE_XOR_BINARY_FUSE_FILTER_XOR_FILTER_LOWMEM_H_
 #define FOURWISE_XOR_BINARY_FUSE_FILTER_XOR_FILTER_LOWMEM_H_
 
-#include <vector>
-#include <cstring>
-#include <sstream>
 #include <algorithm>
 #include <assert.h>
+#include <cmath>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <sstream>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <iostream>
-#include <fstream>
 #include <string>
-#include "uint128.h"
-#include <random>
+#include <sys/types.h>
+#include <vector>
 
-bool IS_COMPRESS = false;
-//using namespace std;
+#include "hex_key_utils.h"
+
 #define XOR_MAX_SIZE UINT32_MAX - 3
 #define XOR_MIN_SIZE INT32_MAX - 3
-#define CHAR_BIT 8
-
-//#define XOR_ULTRA_SIZE XOR_MAX_SIZE * 2
-class TwoIndependentMultiplyShift {
-    uint128_t multiply_, add_;
-public:
-    TwoIndependentMultiplyShift() {
-        ::std::random_device random;
-        for (auto v : { &multiply_, &add_ }) {
-            *v = random();
-            for (int i = 1; i <= 4; ++i) {
-                *v = *v << 32;
-                *v |= random();
-            }
-        }
-    }
-    inline uint64_t operator()(uint64_t key) const {
-        return (add_ + multiply_ * static_cast<decltype(multiply_)>(key)) >> 64;
-    }
-
-};
-
 
 class SimpleMixSplit {
-
 public:
-    SimpleMixSplit() {
-    }
-
+    // Stable 64-bit mixer used by the filter for key placement and fingerprints.
     inline static uint64_t murmur64(uint64_t h) {
         h ^= h >> 33;
         h *= UINT64_C(0xff51afd7ed558ccd);
@@ -57,49 +38,14 @@ public:
         return h;
     }
 
-    //inline static uint64_t murmur128(uint128_t h) {
-    //    h ^= h >> 64;
-    //    h *= uint128_t(UINT64_C(0xff51afd7ed558ccd)) << 64 | UINT64_C(0xff51afd7ed558ccd);
-    //    h ^= h >> 64;
-    //    h *= uint128_t(UINT64_C(0xc4ceb9fe1a85ec53)) << 64 | UINT64_C(0xc4ceb9fe1a85ec53);
-    //    h ^= h >> 64;
-
-    inline static uint64_t murmur128(uint128_t h) {
-        //uint64_t h = (hash.m_hi ^ hash.m_lo);
-        h ^= h >> 33;
-        h *= UINT64_C(0xff51afd7ed558ccd);
-        h ^= h >> 33;
-        h *= UINT64_C(0xc4ceb9fe1a85ec53);
-        h ^= h >> 33;
-        return h;
-    }
-
-    //    return (h.m_hi ^ h.m_lo);
-    //}
-    //inline static uint64_t murmur128(uint128_t h) {
-    //    h ^= h >> 64;
-    //    h *= uint128_t(0x9e3779b97f4a7c15) << 64 | 0x9e3779b97f4a7c15;
-    //    h ^= h >> 64;
-    //    h *= uint128_t(0xc6a4a7935bd1e995) << 64 | 0xc6a4a7935bd1e995;
-    //    h ^= h >> 64;
-    //    return  (h.m_hi ^ h.m_lo);;
-    //}
-
     inline uint64_t operator()(uint64_t key) const {
         return murmur64(key);
-    }
-    //inline uint128_t operator()(const void* key) const {
-    //    return murmur128(&key, sizeof(key));
-    //}
-    inline uint128_t operator()(uint128_t key) const {
-
-        return murmur128(key);
     }
 };
 
 
-
-uint64_t calculateSegmentLength(uint64_t arity, uint64_t size) {
+// Chooses the segment length used by the 4-wise binary fuse layout.
+inline uint64_t calculateSegmentLength(uint64_t arity, uint64_t size) {
     uint64_t segmentLength;
     if (arity == 3) {
         // We deliberately divide a log by a log so that the reader does not have
@@ -116,7 +62,8 @@ uint64_t calculateSegmentLength(uint64_t arity, uint64_t size) {
     return segmentLength;
 }
 
-double calculateSizeFactor(uint64_t arity, uint64_t size) {
+// Returns the load factor that gives the builder enough slack to find a peel order.
+inline double calculateSizeFactor(uint64_t arity, uint64_t size) {
     if (size <= 2) { size = 2; }
     double sizeFactor;
     if (arity == 3) {
@@ -165,14 +112,13 @@ namespace xorbinaryfusefilter_lowmem4wise {
         uint64_t hashIndex{ 0 };
 
 
+        // Compresses the 64-bit hash down to the fingerprint width stored in the filter.
         static inline FingerprintType fingerprint(uint64_t hash)
         {
-
-             return hash ^ (hash >> 32);
-
-           
+            return hash ^ (hash >> 32);
         }
 
+        // Deterministic seed generation keeps builds reproducible across runs.
         static inline uint64_t rng_splitmix64(uint64_t* seed)
         {
             uint64_t z = (*seed += UINT64_C(0x9E3779B97F4A7C15));
@@ -180,89 +126,42 @@ namespace xorbinaryfusefilter_lowmem4wise {
             z = (z ^ (z >> 27)) * UINT64_C(0x94D049BB133111EB);
             return z ^ (z >> 31);
         }
-        /*inline FingerprintType fingerprint(const uint128_t hash) const {
-            return (FingerprintType)hash;
-        }*/
-        //inline FingerprintType fingerprint(const uint64_t hash) const {
-        //    //uint32_t low = hash & 0xFFFFFFFF; 
-        //    //uint32_t high = (hash >> 32) & 0xFFFFFFFF; 
-        //    return static_cast<FingerprintType>(hash); 
-        //}
 
-
-        static inline uint64_t rotateLeft(uint64_t n, unsigned int c) {
-            const unsigned int mask = (CHAR_BIT * sizeof(n) - 1);
-            c &= mask;
-            return (n << c) | (n >> ((-c) & mask));
+        // Stores a 2-bit edge index in a compact byte buffer.
+        static inline void setPacked2(uint8_t* packed, uint64_t index, uint8_t value) {
+            const uint64_t byteIndex = index >> 2;
+            const uint64_t shift = (index & 3ULL) * 2ULL;
+            const uint8_t mask = static_cast<uint8_t>(0x3u << shift);
+            packed[byteIndex] = static_cast<uint8_t>((packed[byteIndex] & ~mask) | ((value & 0x3u) << shift));
         }
 
-        static inline uint64_t rotateRight(uint64_t n, unsigned int c) {
-            const unsigned int mask = (CHAR_BIT * sizeof(n) - 1);
-            c &= mask;
-            return (n >> c) | (n << ((-c) & mask));
+        // Reads a packed 2-bit edge index from the compact reverse-order buffer.
+        static inline uint8_t getPacked2(const uint8_t* packed, uint64_t index) {
+            const uint64_t shift = (index & 3ULL) * 2ULL;
+            return static_cast<uint8_t>((packed[index >> 2] >> shift) & 0x3u);
         }
 
-        /*inline uint64_t getHashFromHash(uint64_t hash, int index) const {
-            uint128_t x = (uint128_t)hash * (uint128_t)segmentCountLength;
-            uint64_t h = (uint64_t)(x >> 64);
+        // Maps a mixed key hash to one of the four filter positions used by the key.
+        inline uint64_t getHashFromHash(uint64_t hash, int index) const {
+            uint64_t h = hex_to_xor::mul_hi_u64(hash, segmentCountLength);
             h += index * segmentLength;
-            uint64_t hh = hash;
-            if (index > 0) {
-                h ^= hh >> ((index - 1) * 16) & segmentLengthMask;
+            const uint64_t hh = hash & ((1ULL << 32) - 1);
+            if (index < 3) {
+                h ^= (hh >> (36 - 18 * index)) & segmentLengthMask;
             }
             return h;
-        }*/
-        inline uint64_t getHashFromHash(uint64_t hash, int index)  const
-            //  const binary_fuse_t *filter)
-        {
-            /*if (IS_COMPRESS) {
-
-                uint128_t x = (uint128_t)hash * (uint128_t)segmentCountLength;
-                uint64_t h = (uint64_t)(x >> 64);
-                h += index * segmentLength;
-                uint64_t hh = hash;
-                if (index > 0) {
-                    h ^= hh >> ((index - 1) * 16) & segmentLengthMask;
-                }
-                return h;
-
-            }
-            else {*/
-                uint128_t x = (uint128_t)hash * (uint128_t)segmentCountLength;
-                uint64_t h = (uint64_t)(x >> 64);
-                h += index * segmentLength;
-                // keep the lower 36 bits
-                uint64_t hh = hash & ((1ULL << 32) - 1);
-                // index 0: right shift by 36; index 1: right shift by 18; index 2: no shift
-                if (index < 3)
-                {
-                    h ^= (uint64_t)((hh >> (36 - 18 * index)) & segmentLengthMask);
-                }
-                return h;
-            //}
         }
-
-
-
 
         explicit XorBinaryFuseFilter(const uint64_t sizes) {
             uint64_t rng_counter = 0x726b2b9d438b9d4d;
             Seed = rng_splitmix64(&rng_counter);
             uint64_t size = sizes;
-            if (size < 2)
-            {
+            if (size < 2) {
                 size = 2;
             }
-            /*if (size % 2 != 0)
-            {
-                size++;
-            }*/
             hasher = new HashFamily();
             this->size = size;
             this->segmentLength = calculateSegmentLength(arity, size);
-           /* if (this->segmentLength > (1 << 18)) {
-                this->segmentLength = (1 << 18);
-            }*/
             double sizeFactor = calculateSizeFactor(arity, size);
             uint64_t capacity = size * sizeFactor;
             uint64_t segmentCount = (capacity + segmentLength - 1) / segmentLength - (arity - 1);
@@ -273,7 +172,6 @@ namespace xorbinaryfusefilter_lowmem4wise {
             this->arrayLength = (this->segmentCount + arity - 1) * this->segmentLength;
             this->segmentCountLength = this->segmentCount * this->segmentLength;
             fingerprints = new FingerprintType[arrayLength]();
-            std::fill_n(fingerprints, arrayLength, 0);
         }
         explicit XorBinaryFuseFilter() {
             uint64_t rng_counter = 0x726b2b9d438b9d4d;
@@ -282,9 +180,6 @@ namespace xorbinaryfusefilter_lowmem4wise {
             hasher = new HashFamily();
             this->size = size;
             this->segmentLength = calculateSegmentLength(arity, size);
-           /* if (this->segmentLength > (1 << 18)) {
-                this->segmentLength = (1 << 18);
-            }*/
             double sizeFactor = calculateSizeFactor(arity, size);
             uint64_t capacity = size * sizeFactor;
             uint64_t segmentCount = (capacity + segmentLength - 1) / segmentLength - (arity - 1);
@@ -295,8 +190,12 @@ namespace xorbinaryfusefilter_lowmem4wise {
             this->arrayLength = (this->segmentCount + arity - 1) * this->segmentLength;
             this->segmentCountLength = this->segmentCount * this->segmentLength;
             fingerprints = new FingerprintType[arrayLength]();
-            std::fill_n(fingerprints, arrayLength, 0);
         }
+
+        XorBinaryFuseFilter(const XorBinaryFuseFilter&) = delete;
+        XorBinaryFuseFilter& operator=(const XorBinaryFuseFilter&) = delete;
+        XorBinaryFuseFilter(XorBinaryFuseFilter&&) = delete;
+        XorBinaryFuseFilter& operator=(XorBinaryFuseFilter&&) = delete;
 
         ~XorBinaryFuseFilter() {
             delete[] fingerprints;
@@ -307,49 +206,36 @@ namespace xorbinaryfusefilter_lowmem4wise {
             return AddAll(data.data(), start, end);
         }
 
-
+        // Builds the filter in memory by repeatedly trying to peel the 4-wise graph.
         Status AddAll(const ItemType* data, const uint64_t start, const uint64_t end) {
-
-
-            uint64_t* reverseOrder = new uint64_t[size + 1];
-            uint8_t* reverseH = new uint8_t[size];
-            uint64_t reverseOrderPos;
-
-
+            std::vector<uint64_t> reverseOrder(size + 1, 0);
+            std::vector<uint8_t> reverseHPacked((size + 3) / 4, 0);
+            uint64_t reverseOrderPos = 0;
             hashIndex = 0;
 
             uint64_t h0123[7];
-            uint64_t hi0123[7];
-            hi0123[0] = 0;
-            hi0123[1] = 1;
-            hi0123[2] = 2;
-            hi0123[3] = 3;
-            hi0123[4] = 0;
-            hi0123[5] = 1;
-            hi0123[6] = 2;
-            int MAX_ATTEMPS = 1;
+            const uint8_t hi0123[7] = { 0, 1, 2, 3, 0, 1, 2 };
             int current_attempt = 0;
             double sizeFactor = calculateSizeFactor(arity, size);
             while (true) {
-                uint16_t* t2count = new uint16_t[arrayLength];
-                uint64_t* t2hash = new uint64_t[arrayLength];
-                uint64_t* alone = new uint64_t[arrayLength];
+                std::vector<uint8_t> t2count(arrayLength, 0);
+                std::vector<uint64_t> t2hash(arrayLength, 0);
+                std::vector<uint64_t> alone(arrayLength, 0);
+                bool countOverflow = false;
 
                 current_attempt++;
                 reverseOrderPos = 0;
-                memset(t2count, 0, sizeof(uint16_t) * arrayLength);
-                memset(t2hash, 0, sizeof(uint64_t) * arrayLength);
-
-                memset(reverseOrder, 0, sizeof(uint64_t) * size);
+                std::fill(reverseOrder.begin(), reverseOrder.end(), 0);
                 reverseOrder[size] = 1;
+                std::fill(reverseHPacked.begin(), reverseHPacked.end(), 0);
 
                 uint64_t blockBits = 1;
                 while ((uint64_t(1) << blockBits) < segmentCount) {
                     blockBits++;
                 }
-                uint64_t block = uint64_t(1) << blockBits;
-                uint64_t* startPos = new uint64_t[block];
-                for (uint64_t i = 0; i < uint64_t(1) << blockBits; i++) {
+                const uint64_t block = uint64_t(1) << blockBits;
+                std::vector<uint64_t> startPos(block, 0);
+                for (uint64_t i = 0; i < block; i++) {
                     startPos[i] = i * size / block;
                 }
                 for (uint64_t i = start; i < end; i++) {
@@ -363,80 +249,27 @@ namespace xorbinaryfusefilter_lowmem4wise {
                     reverseOrder[startPos[segment_index]] = hash;
                     startPos[segment_index]++;
                 }
-                uint8_t countMask = 0;
-                for (uint64_t i = 0; i < size; i++) {
-                    uint64_t hash = reverseOrder[i];
+                for (uint64_t i = 0; i < size && !countOverflow; i++) {
+                    const uint64_t hash = reverseOrder[i];
                     for (int hi = 0; hi < 4; hi++) {
-                        uint64_t index = getHashFromHash(hash, hi);
-                        t2count[index] += 4;
-                        t2count[index] ^= hi;
-                        t2hash[index] ^= hash;
-                        countMask |= t2count[index];
-                    }
-                }
-                delete[] startPos;
-                /*if (countMask >= 0x80) {
-                    memset(fingerprints, ~0, arrayLength * sizeof(FingerprintType));
-                    return Ok;
-                }*/
-                reverseOrderPos = 0;
-                uint64_t alonePos = 0;
-                for (uint64_t i = 0; i < arrayLength; i++) {
-                    alone[alonePos] = i;
-                    int inc = (t2count[i] >> 2) == 1 ? 1 : 0;
-                    alonePos += inc;
-                }
-
-                while (alonePos > 0) {
-                    alonePos--;
-                    uint64_t index = alone[alonePos];
-                    if ((t2count[index] >> 2) == 1) {
-                        uint64_t hash = t2hash[index];
-                        int found = t2count[index] & 3;
-
-                        reverseH[reverseOrderPos] = found;
-                        reverseOrder[reverseOrderPos] = hash;
-
-                        h0123[1] = getHashFromHash(hash, 1);
-                        h0123[2] = getHashFromHash(hash, 2);
-                        h0123[3] = getHashFromHash(hash, 3);
-                        h0123[4] = getHashFromHash(hash, 0);
-                        h0123[5] = h0123[1];
-                        h0123[6] = h0123[2];
-
-                        uint64_t index3 = h0123[found + 1];
-                        alone[alonePos] = index3;
-                        alonePos += ((t2count[index3] >> 2) == 2 ? 1 : 0);
-                        t2count[index3] -= 4;
-                        t2count[index3] ^= hi0123[found + 1];
-                        t2hash[index3] ^= hash;
-
-                        index3 = h0123[found + 2];
-                        alone[alonePos] = index3;
-                        alonePos += ((t2count[index3] >> 2) == 2 ? 1 : 0);
-                        t2count[index3] -= 4;
-                        t2count[index3] ^= hi0123[found + 2];
-                        t2hash[index3] ^= hash;
-
-                        index3 = h0123[found + 3];
-                        alone[alonePos] = index3;
-                        alonePos += ((t2count[index3] >> 2) == 2 ? 1 : 0);
-                        t2count[index3] -= 4;
-                        t2count[index3] ^= hi0123[found + 3];
-                        t2hash[index3] ^= hash;
-
-                        reverseOrderPos++;
-                    }
-                }
-
-                if (reverseOrderPos < size) {
-                    for (uint64_t idx = 0; idx < arrayLength; idx++) {
-                        if ((t2count[idx] >> 2) > 1) {
-                            alone[alonePos++] = idx;
+                        const uint64_t index = getHashFromHash(hash, hi);
+                        if (t2count[index] > std::numeric_limits<uint8_t>::max() - 4) {
+                            countOverflow = true;
                             break;
-
                         }
+                        t2count[index] = static_cast<uint8_t>(t2count[index] + 4);
+                        t2count[index] ^= static_cast<uint8_t>(hi);
+                        t2hash[index] ^= hash;
+                    }
+                }
 
+                if (!countOverflow) {
+                    reverseOrderPos = 0;
+                    uint64_t alonePos = 0;
+                    for (uint64_t i = 0; i < arrayLength; i++) {
+                        alone[alonePos] = i;
+                        int inc = (t2count[i] >> 2) == 1 ? 1 : 0;
+                        alonePos += inc;
                     }
 
                     while (alonePos > 0) {
@@ -446,7 +279,7 @@ namespace xorbinaryfusefilter_lowmem4wise {
                             uint64_t hash = t2hash[index];
                             int found = t2count[index] & 3;
 
-                            reverseH[reverseOrderPos] = found;
+                            setPacked2(reverseHPacked.data(), reverseOrderPos, static_cast<uint8_t>(found));
                             reverseOrder[reverseOrderPos] = hash;
 
                             h0123[1] = getHashFromHash(hash, 1);
@@ -481,15 +314,66 @@ namespace xorbinaryfusefilter_lowmem4wise {
                         }
                     }
 
+                    if (reverseOrderPos < size) {
+                        for (uint64_t idx = 0; idx < arrayLength; idx++) {
+                            if ((t2count[idx] >> 2) > 1) {
+                                alone[alonePos++] = idx;
+                                break;
+                            }
+                        }
+
+                        while (alonePos > 0) {
+                            alonePos--;
+                            uint64_t index = alone[alonePos];
+                            if ((t2count[index] >> 2) == 1) {
+                                uint64_t hash = t2hash[index];
+                                int found = t2count[index] & 3;
+
+                                setPacked2(reverseHPacked.data(), reverseOrderPos, static_cast<uint8_t>(found));
+                                reverseOrder[reverseOrderPos] = hash;
+
+                                h0123[1] = getHashFromHash(hash, 1);
+                                h0123[2] = getHashFromHash(hash, 2);
+                                h0123[3] = getHashFromHash(hash, 3);
+                                h0123[4] = getHashFromHash(hash, 0);
+                                h0123[5] = h0123[1];
+                                h0123[6] = h0123[2];
+
+                                uint64_t index3 = h0123[found + 1];
+                                alone[alonePos] = index3;
+                                alonePos += ((t2count[index3] >> 2) == 2 ? 1 : 0);
+                                t2count[index3] -= 4;
+                                t2count[index3] ^= hi0123[found + 1];
+                                t2hash[index3] ^= hash;
+
+                                index3 = h0123[found + 2];
+                                alone[alonePos] = index3;
+                                alonePos += ((t2count[index3] >> 2) == 2 ? 1 : 0);
+                                t2count[index3] -= 4;
+                                t2count[index3] ^= hi0123[found + 2];
+                                t2hash[index3] ^= hash;
+
+                                index3 = h0123[found + 3];
+                                alone[alonePos] = index3;
+                                alonePos += ((t2count[index3] >> 2) == 2 ? 1 : 0);
+                                t2count[index3] -= 4;
+                                t2count[index3] ^= hi0123[found + 3];
+                                t2hash[index3] ^= hash;
+
+                                reverseOrderPos++;
+                            }
+                        }
+                    }
                 }
-                if (reverseOrderPos == size) {
+
+                if (!countOverflow && reverseOrderPos == size) {
                     break;
                 }
-                printf("[!] Error building XOR filter... %llu != %llu . Trying build new one, attemp = %i [!]\n", reverseOrderPos, size, current_attempt);
+                std::cerr << "[!] Error building XOR filter... " << reverseOrderPos
+                    << " != " << size << ". Trying build new one, attempt = " << current_attempt << " [!]\n";
 
-                
-                sizeFactor *= 1.10;      // +10%
-                //arrayLength = size * sizeFactor;
+                // Grow the backing array gradually until the graph becomes peelable.
+                sizeFactor *= 1.10;
                 uint64_t capacity = size * sizeFactor;
                 uint64_t segmentCount_local = (capacity + segmentLength - 1) / segmentLength - (arity - 1);
                 arrayLength = (segmentCount_local + arity - 1) * segmentLength;
@@ -500,16 +384,11 @@ namespace xorbinaryfusefilter_lowmem4wise {
                 segmentCountLength = segmentCount * segmentLength;
                 delete[] fingerprints;
                 fingerprints = new FingerprintType[arrayLength]();
-                delete[] alone;
-                delete[] t2count;
-                delete[] t2hash;
-
             }
-
 
             for (uint64_t i = reverseOrderPos; i-- > 0;) {
                 uint64_t hash = reverseOrder[i];
-                int found = reverseH[i];
+                int found = getPacked2(reverseHPacked.data(), i);
                 FingerprintType xor2 = fingerprint(hash);
                 h0123[0] = getHashFromHash(hash, 0);
                 h0123[1] = getHashFromHash(hash, 1);
@@ -520,12 +399,11 @@ namespace xorbinaryfusefilter_lowmem4wise {
                 h0123[6] = h0123[2];
                 fingerprints[h0123[found]] = xor2 ^ fingerprints[h0123[found + 1]] ^ fingerprints[h0123[found + 2]] ^ fingerprints[h0123[found + 3]];
             }
-            delete[] reverseOrder;
-            delete[] reverseH;
 
             return Ok;
         }
 
+        // Checks whether the item is present using the four stored fingerprints.
         bool Contain(const ItemType& item) const {
             uint64_t hash = (*hasher)(item + Seed);
             FingerprintType f = fingerprint(hash);
@@ -533,9 +411,10 @@ namespace xorbinaryfusefilter_lowmem4wise {
                 uint64_t h = getHashFromHash(hash, hi);
                 f ^= fingerprints[h];
             }
-            return f == 0 ? true : false;
+            return f == 0;
         }
 
+        // Returns a small human-readable summary that is handy in local debugging.
         std::string Info() const {
             std::stringstream ss;
             ss << "4-wise XorBinaryFuseFilter Status:\n"
@@ -547,7 +426,7 @@ namespace xorbinaryfusefilter_lowmem4wise {
 
         uint64_t SizeInBytes() const { return arrayLength * sizeof(FingerprintType); }
 
-        // Function to save the filter to a file
+        // Saves the filter using the legacy binary layout so older files remain readable.
         bool SaveToFile(const std::string& filename) const {
             std::ofstream out(filename, std::ios::binary);
             if (!out.is_open()) {
@@ -564,7 +443,7 @@ namespace xorbinaryfusefilter_lowmem4wise {
             return true;
         }
 
-        // Function to load the filter from a file
+        // Loads a filter written by SaveToFile without changing the on-disk format.
         bool LoadFromFile(const std::string& filename) {
             std::ifstream in(filename, std::ios::binary);
             if (!in.is_open()) {
