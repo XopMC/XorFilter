@@ -47,9 +47,10 @@ void print_usage() {
     std::cerr << "[!] -compress \tBuild compressed XOR filters (.xor_c) - 0.0000001% false-positive rate\n";
     std::cerr << "[!] -ultra \tBuild ultra-compressed XOR filters (.xor_uc) - 0.001444% false-positive rate\n";
     std::cerr << "[!] -hyper \tBuild hyper-compressed XOR filters (.xor_hc) - 0.3556% false-positive rate\n";
-    std::cerr << "[!] -mini \tUse filter size 2,147,483,644 (about 9 GB, or 4.5 GB for ultra)\n";
-    std::cerr << "[!] -max \tUse filter size 8,589,934,584 (about 36 GB, or 18 GB for ultra)\n";
-    std::cerr << "[!] -max2 \tUse filter size 17,179,869,168 (about 72 GB, or 36 GB for ultra)\n";
+    std::cerr << "[!] -mini \tSmaller per-filter batch: 2,147,483,644 entries (about 9 GB, or 4.5 GB for ultra)\n";
+    std::cerr << "[!] -max \tLarge per-filter batch: 8,589,934,584 entries (about 36 GB, or 18 GB for ultra; can use >256 GB RAM)\n";
+    std::cerr << "[!] -max2 \tLargest per-filter batch: 17,179,869,168 entries (about 72 GB, or 36 GB for ultra; can use >512 GB RAM)\n";
+    std::cerr << "[!]        These presets also cap the in-memory batch size: smaller presets reduce peak RAM but may create more numbered filter files.\n";
     std::cerr << "[!] -txt \tSplit the source text into chunk files while building filters\n";
     std::cerr << "[!] -force \tUse the slower but conservative duplicate-removal path\n";
     std::cerr << "[!] -o FOLDER\tWrite output files into the selected folder\n";

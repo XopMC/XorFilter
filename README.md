@@ -129,11 +129,28 @@ Output:
 | `-compress` | Builds compressed filters | Produces `.xor_c` files |
 | `-ultra` | Builds ultra-compressed filters | Produces `.xor_uc` files |
 | `-hyper` | Builds hyper-compressed filters | Produces `.xor_hc` files |
-| `-mini` | Uses the smaller large-filter preset | About `2,147,483,644` entries |
-| `-max` | Uses the large-filter preset | About `8,589,934,584` entries |
-| `-max2` | Uses the largest preset | About `17,179,869,168` entries |
+| `-mini` | Uses the smaller large-filter preset | About `2,147,483,644` entries per filter file; useful when you want to keep peak RAM lower |
+| `-max` | Uses the large-filter preset | About `8,589,934,584` entries per filter file; can require very large amounts of RAM |
+| `-max2` | Uses the largest preset | About `17,179,869,168` entries per filter file; intended only for machines with extreme RAM capacity |
 | `-txt` | Saves numbered split text chunks while processing | Useful when the source stream is large |
 | `-force` | Uses the conservative duplicate-removal path | Higher CPU cost, avoids the fast path |
+
+### Capacity Presets and RAM Usage
+
+`-mini`, `-max`, and `-max2` are not just "make the filter bigger" switches.
+
+They define the maximum batch size that is accumulated before the current filter file is built and flushed. In practice, that means they affect two things at the same time:
+
+- how large one output filter file can become;
+- how much RAM the tool may need while it is collecting, sorting, deduplicating, and building that batch.
+
+This is the practical way to think about them:
+
+- `-mini` is the safer choice when you want to limit peak RAM. The tool will flush smaller batches, which usually means more numbered output files, but each batch is easier to build. Typical output size is about `9 GB` in the default mode and about `4.5 GB` in ultra mode.
+- `-max` lets one filter file grow much larger. This can reduce the number of output files, but it may require more than `256 GB RAM` on very large runs. Typical output size is about `36 GB` in the default mode and about `18 GB` in ultra mode.
+- `-max2` is the extreme preset. It targets the largest per-file batch size and may require more than `512 GB RAM` on very large runs. Typical output size is about `72 GB` in the default mode and about `36 GB` in ultra mode.
+
+If your goal is to keep memory under control, start with `-mini`. If your goal is to produce fewer, larger filter files and your machine has enough RAM, move up to `-max` or `-max2`.
 
 ### Naming Convention for Output Files
 
@@ -213,11 +230,14 @@ x64\Release\hex_to_xor.exe -i .\data\part1.txt -i .\data\part2.txt -i .\data\par
 x64\Release\hex_to_xor.exe -i .\data\hashes.txt -txt -o .\out
 ```
 
-#### 9. Use a larger preset
+#### 9. Choose a preset based on memory budget
 
 ```powershell
+x64\Release\hex_to_xor.exe -i .\data\hashes.txt -compress -mini
 x64\Release\hex_to_xor.exe -i .\data\hashes.txt -compress -max
 ```
+
+`-mini` is the better starting point when RAM matters. `-max` is for machines that can afford much larger in-memory batches.
 
 #### 10. Use the conservative duplicate-removal path
 
@@ -395,11 +415,28 @@ make
 | `-compress` | Строит сжатый фильтр | Создаёт `.xor_c` |
 | `-ultra` | Строит ultra-compressed фильтр | Создаёт `.xor_uc` |
 | `-hyper` | Строит hyper-compressed фильтр | Создаёт `.xor_hc` |
-| `-mini` | Использует уменьшенный большой preset | Около `2 147 483 644` записей |
-| `-max` | Использует большой preset | Около `8 589 934 584` записей |
-| `-max2` | Использует самый большой preset | Около `17 179 869 168` записей |
+| `-mini` | Использует уменьшенный большой preset | Около `2 147 483 644` записей на один файл фильтра; полезно, если нужно держать RAM ниже |
+| `-max` | Использует большой preset | Около `8 589 934 584` записей на один файл фильтра; может требовать очень большого объёма RAM |
+| `-max2` | Использует самый большой preset | Около `17 179 869 168` записей на один файл фильтра; режим для машин с экстремальным объёмом RAM |
 | `-txt` | Сохраняет разбитые текстовые чанки во время обработки | Полезно для очень больших входов |
 | `-force` | Включает более консервативный путь удаления дублей | Дороже по CPU, но без fast path |
+
+### Preset'ы вместимости и потребление ОЗУ
+
+`-mini`, `-max` и `-max2` — это не просто переключатели вида "сделать фильтр побольше".
+
+Они задают максимальный размер батча, который инструмент накапливает перед тем, как построить очередной файл фильтра и сбросить текущий набор. На практике эти флаги одновременно влияют на две вещи:
+
+- насколько большим может стать один выходной файл фильтра;
+- сколько ОЗУ может понадобиться инструменту во время накопления, сортировки, дедупликации и построения этого батча.
+
+Проще всего понимать их так:
+
+- `-mini` — более безопасный вариант, если нужно ограничить пиковое потребление ОЗУ. Батчи будут меньше, поэтому инструмент чаще будет создавать несколько нумерованных файлов, но каждый из них легче собрать. Типичный размер результата — около `9 GB` в обычном режиме и около `4.5 GB` в ultra-режиме.
+- `-max` позволяет сделать один файл фильтра заметно крупнее. Это уменьшает количество выходных файлов, но на очень больших прогонах может потребовать более `256 GB RAM`. Типичный размер результата — около `36 GB` в обычном режиме и около `18 GB` в ultra-режиме.
+- `-max2` — экстремальный preset для самого большого размера батча на один файл. На очень больших прогонах может потребовать более `512 GB RAM`. Типичный размер результата — около `72 GB` в обычном режиме и около `36 GB` в ultra-режиме.
+
+Если главная цель — удержать потребление памяти в разумных пределах, лучше начинать с `-mini`. Если цель — получить меньше, но более крупных файлов фильтра, и у машины достаточно памяти, тогда уже имеет смысл переходить к `-max` или `-max2`.
 
 ### Как формируются имена выходных файлов
 
@@ -479,11 +516,14 @@ x64\Release\hex_to_xor.exe -i .\data\part1.txt -i .\data\part2.txt -i .\data\par
 x64\Release\hex_to_xor.exe -i .\data\hashes.txt -txt -o .\out
 ```
 
-#### 9. Использовать более крупный preset
+#### 9. Выбрать preset под объём доступной памяти
 
 ```powershell
+x64\Release\hex_to_xor.exe -i .\data\hashes.txt -compress -mini
 x64\Release\hex_to_xor.exe -i .\data\hashes.txt -compress -max
 ```
+
+Если RAM ограничена, лучше начинать с `-mini`. `-max` имеет смысл только на машинах, где действительно можно позволить себе очень большой in-memory батч.
 
 #### 10. Использовать консервативный путь удаления дублей
 
