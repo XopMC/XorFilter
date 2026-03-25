@@ -41,6 +41,18 @@ static inline uint32_t _udiv64(uint64_t a, uint32_t b, uint32_t* remainder) {
 #include <xmmintrin.h>
 #include <emmintrin.h>
 
+#ifdef _tzcnt_u64
+#undef _tzcnt_u64
+#endif
+
+#ifdef _lzcnt_u64
+#undef _lzcnt_u64
+#endif
+
+#ifdef _bzhi_u64
+#undef _bzhi_u64
+#endif
+
 static inline uint64_t _udiv128(uint64_t nHi, uint64_t nLo, uint64_t d, uint64_t* rem) {
     uint64_t quotient = 0;
     uint64_t r = nHi;

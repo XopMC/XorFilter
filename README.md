@@ -112,7 +112,7 @@ make
 Output:
 
 ```text
-./hex_to_xor
+./build/hex_to_xor
 ```
 
 ### Command-Line Arguments
@@ -158,7 +158,7 @@ x64\Release\hex_to_xor.exe -i .\data\hashes.txt
 Linux:
 
 ```bash
-./hex_to_xor -i ./data/hashes.txt
+./build/hex_to_xor -i ./data/hashes.txt
 ```
 
 #### 2. Build a compressed filter
@@ -194,7 +194,7 @@ x64\Release\hex_to_xor.exe -i .\data\hashes.txt -compress -o .\out
 Linux:
 
 ```bash
-./hex_to_xor -i ./data/hashes.txt -compress -o ./out
+./build/hex_to_xor -i ./data/hashes.txt -compress -o ./out
 ```
 
 #### 7. Use multiple input files
@@ -374,7 +374,7 @@ make
 Результат:
 
 ```text
-./hex_to_xor
+./build/hex_to_xor
 ```
 
 ### Аргументы командной строки
@@ -420,7 +420,7 @@ x64\Release\hex_to_xor.exe -i .\data\hashes.txt
 Linux:
 
 ```bash
-./hex_to_xor -i ./data/hashes.txt
+./build/hex_to_xor -i ./data/hashes.txt
 ```
 
 #### 2. Построить compressed фильтр
@@ -456,7 +456,7 @@ x64\Release\hex_to_xor.exe -i .\data\hashes.txt -compress -o .\out
 Linux:
 
 ```bash
-./hex_to_xor -i ./data/hashes.txt -compress -o ./out
+./build/hex_to_xor -i ./data/hashes.txt -compress -o ./out
 ```
 
 #### 7. Использовать несколько входных файлов
