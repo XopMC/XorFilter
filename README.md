@@ -161,6 +161,11 @@ If your goal is to keep memory under control, start with `-mini`. If your goal i
 | `512+ GB RAM` | Push one filter file as large as possible | `-max2` | Best suited for very large runs on machines built for huge memory workloads |
 | Not sure about available headroom | Start conservatively | `-mini` | It is the safest first pass before moving up to more aggressive presets |
 
+> Rule of thumb:
+> Start with `-mini`.
+> Move to `-max` only after you confirm that the machine has real RAM headroom.
+> Use `-max2` only on dedicated high-memory systems where huge in-memory batches are expected.
+
 ### Naming Convention for Output Files
 
 The tool derives the file name from the first input file and appends a sequence number plus the mode extension.
@@ -455,6 +460,11 @@ make
 | `128-256 GB RAM` | Делать более крупные файлы без экстремума | `-max` | Подходит, когда хочется меньше выходных файлов и машина уже тянет гораздо более крупный батч |
 | `512+ GB RAM` | Выжать максимально большой один файл фильтра | `-max2` | Имеет смысл для очень больших прогонов на машинах с действительно огромным объёмом памяти |
 | Если не уверен в запасе памяти | Начать аккуратно | `-mini` | Это самый безопасный стартовый вариант перед переходом к более агрессивным preset'ам |
+
+> Простое правило:
+> Начинай с `-mini`.
+> Переходить на `-max` стоит только после подтверждения, что у машины действительно есть запас по ОЗУ.
+> `-max2` имеет смысл только на выделенных high-memory системах, где заранее ожидаются огромные in-memory батчи.
 
 ### Как формируются имена выходных файлов
 
