@@ -152,6 +152,15 @@ This is the practical way to think about them:
 
 If your goal is to keep memory under control, start with `-mini`. If your goal is to produce fewer, larger filter files and your machine has enough RAM, move up to `-max` or `-max2`.
 
+#### Quick Preset Guide
+
+| If your machine looks like this | Main goal | Recommended flag | Why |
+| --- | --- | --- | --- |
+| `32-64 GB RAM` | Stay on the safe side | `-mini` | Keeps the in-memory batch smaller and reduces the risk of running out of memory |
+| `128-256 GB RAM` | Build larger files without going extreme | `-max` | Good when you want fewer output files and the machine can handle a much bigger batch |
+| `512+ GB RAM` | Push one filter file as large as possible | `-max2` | Best suited for very large runs on machines built for huge memory workloads |
+| Not sure about available headroom | Start conservatively | `-mini` | It is the safest first pass before moving up to more aggressive presets |
+
 ### Naming Convention for Output Files
 
 The tool derives the file name from the first input file and appends a sequence number plus the mode extension.
@@ -437,6 +446,15 @@ make
 - `-max2` — экстремальный preset для самого большого размера батча на один файл. На очень больших прогонах может потребовать более `512 GB RAM`. Типичный размер результата — около `72 GB` в обычном режиме и около `36 GB` в ultra-режиме.
 
 Если главная цель — удержать потребление памяти в разумных пределах, лучше начинать с `-mini`. Если цель — получить меньше, но более крупных файлов фильтра, и у машины достаточно памяти, тогда уже имеет смысл переходить к `-max` или `-max2`.
+
+#### Быстрый выбор preset'а
+
+| Если машина выглядит примерно так | Главная цель | Что выбрать | Почему |
+| --- | --- | --- | --- |
+| `32-64 GB RAM` | Играть безопасно по памяти | `-mini` | Уменьшает размер in-memory батча и заметно снижает риск упереться в нехватку ОЗУ |
+| `128-256 GB RAM` | Делать более крупные файлы без экстремума | `-max` | Подходит, когда хочется меньше выходных файлов и машина уже тянет гораздо более крупный батч |
+| `512+ GB RAM` | Выжать максимально большой один файл фильтра | `-max2` | Имеет смысл для очень больших прогонов на машинах с действительно огромным объёмом памяти |
+| Если не уверен в запасе памяти | Начать аккуратно | `-mini` | Это самый безопасный стартовый вариант перед переходом к более агрессивным preset'ам |
 
 ### Как формируются имена выходных файлов
 
